@@ -1,16 +1,16 @@
 package com.example
 
-import akka.actor.SupervisorStrategy.Restart
+import akka.actor.SupervisorStrategy.{Resume, Restart}
 import akka.actor.{OneForOneStrategy, Actor, ActorLogging, Props}
-import com.example.Worker.{HitMeAgain, WorkerException}
+import com.example.Worker.{Work, WorkRequest, WorkerException}
 
 class Supervisor extends Actor with ActorLogging {
   import Supervisor._
   import scala.concurrent.duration._
 
-  var counter = 0
   val worker = context.actorOf(Worker.props(self), "worker")
 
+  // Only restart the failing child 
   override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 3,
     withinTimeRange = 5 seconds) {
     case _: WorkerException => Restart
@@ -18,16 +18,16 @@ class Supervisor extends Actor with ActorLogging {
 
   def receive = {
   	case Initialize => 
-	    log.info("In Supervisor - starting supervision")
-  	  worker ! PingMessage("ping")
-    case HitMeAgain(text: String) =>
-      log.info(s"Hit me again: $text")
-      worker ! PingMessage("pingping")
+	    log.info("[Supervisor] - initializing...")
+  	  worker ! Work("Please complete this initial task for me")
+    case WorkRequest(text: String) =>
+      log.info(s"[Supervisor] - received a request for work ($text)")
+      worker ! Work("Please complete another task for me")
   }
 }
 
 object Supervisor {
   val props = Props[Supervisor]
   case object Initialize
-  case class PingMessage(text: String)
+  case class WorkRequest(text: String)
 }
